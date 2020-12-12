@@ -18,3 +18,12 @@
 # some other considerations
 
 - this Monte Carlo only considers us in single player mode, further expansion with Monte Carlo opponent moves? Or something involving analysing opponent moves?
+
+
+
+## ok temporary:
+
+- Create suicide bomber
+- Use pathfinding algorithms to deteremine if can trap
+- Considerations for picking up bombs or going to trap them
+- HOW do we deteremine which locations they can be trapped? not necessarily just the one they are on right now?
