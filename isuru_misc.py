@@ -1,16 +1,16 @@
 
 
-# Returns a list of all of the tiles which will be hit by an
-# exploding bomb, and a list of the amount of damage they will
-# each take. Also advances the state of the bombs by a tick.
-# INS
-# tick         : int
-# bombs        : list of tuples
-# ticks_placed : list of ints
-#
-# OUTS
-# hazard_tiles : list of tuples
-# damage       : list of ints
+# Looks for any bombs which were added in the previous tick and adds it to our own list of active bombs.
+# This assumes that we have correctly simulated our bombs up to this point so make sure that is the case!
+def look_for_new_bombs(new_bombs, our_bombs, tickses_remaining):
+    for new_bomb in new_bombs:
+        if not our_bombs.count(new_bomb):
+            our_bombs.append(new_bomb)
+            tickses_remaining.append(35)
+
+
+# Returns a list of all of the tiles which will be hit by an exploding bomb, and a list of the amount of
+# damage they will each take. Also advances the state of the bombs by a tick.
 def find_hazard_tiles(bombs, tickses_remaining, dimensions):
 
     def child_will_get_hit_by_parent(parent, child):
@@ -50,8 +50,6 @@ def find_hazard_tiles(bombs, tickses_remaining, dimensions):
     hazard_tiles_temp = []
 
     for bomb in bombs_to_detonate:
-        # @Cleanup(isuru): Do redundancies matter enough that we want to do extra work to avoid them?
-        # @Cleanup(isuru): Pass in map dimensions
         for x in xrange(max(bomb[0] - 2, 0), min(bomb[0] + 2, dimensions[0])):
             hazard_tiles_temp.append((x, bomb[1]))
         for y in xrange(max(bomb[1] - 2, 0), min(bomb[1] + 2, dimensions[1])):
@@ -76,6 +74,7 @@ def find_hazard_tiles(bombs, tickses_remaining, dimensions):
     return hazard_tiles, damage
 
 
+# Returns the number of blocks caught in a bomb's +.
 def find_num_blocks_hit_by_bomb(bomb_pos, blocks, dimensions):
     count = 0
     for x in xrange(max(bomb_pos[0] - 2, 0), min(bomb_pos[0] + 2, dimensions[0])):
@@ -87,16 +86,17 @@ def find_num_blocks_hit_by_bomb(bomb_pos, blocks, dimensions):
     return count
 
 
+# Looks for a tile position to place a bomb at which would hit the enemy and also maximise points gained.
 def tile_to_bomb_if_opponent_not_trappable(opp_pos, game_state):
-    best_tile = tup
+    best_tile = (-1, -1)
     best_points = 0
 
     for x in xrange(max(opp_pos[0] - 2, 0), min(opp_pos[0] + 2, game_state.size[0])):
         bomb_pos = (x, opp_pos[1])
         if not game_state.is_occupied(bomb_pos):
             points = find_num_blocks_hit_by_bomb(bomb_pos, game_state.soft_blocks, game_state.size)
-            # @Incomplete(isuru): Check ore hp
-#            points += 5 * find_num_blocks_hit_by_bomb(bomb_pos, game_state.ore_blocks, game_state.size)
+            # @Incomplete(isuru): Check ore hp, we'll need to rejig
+            points += 5 * find_num_blocks_hit_by_bomb(bomb_pos, game_state.ore_blocks, game_state.size)
             if points > best_points:
                 best_tile = bomb_pos
                 best_points = points
