@@ -13,8 +13,9 @@
 # damage       : list of ints
 def find_hazard_tiles(bombs, tickses_remaining, dimensions):
 
-    def child_will_get_hit_by_bomb(bomb, child):
-        return (bomb[1] == child[1] & abs(bomb[0] - child[0]) <= 2) | (bomb[0] == child[0] & abs(bomb[1] - child[1]) <= 2)
+    def child_will_get_hit_by_parent(parent, child):
+        return (parent[1] == child[1] and abs(parent[0] - child[0]) <= 2) \
+            or (parent[0] == child[0] and abs(parent[1] - child[1]) <= 2)
 
     hazard_tiles = []
     damage = []
@@ -61,35 +62,38 @@ def find_hazard_tiles(bombs, tickses_remaining, dimensions):
     for ticks_remaining in tickses_remaining:
         ticks_remaining -= 1
     
+    ############################
+    # Here we count the damage taken by each tile and construct the final hazard_tiles list.
     temp = []
     while len(hazard_tiles_temp):
         tile = hazard_tiles_temp[0]
         temp.append(tile)
         count = hazard_tiles_temp.count(tile)
         damage.append(count)
-        repeat count:
+        for i in range(0, count):
             hazard_tiles_temp.remove(tile)
 
     return hazard_tiles, damage
 
 
-def find_num_blocks_hit_by_bomb(bomb, blocks, dimensions):
+def find_num_blocks_hit_by_bomb(bomb_pos, blocks, dimensions):
     count = 0
-    for x in xrange(max(bomb[0] - 2, 0), min(bomb[0] + 2, dimensions[0]):
-        if soft_blocks.count((x, bomb[1])):
+    for x in xrange(max(bomb_pos[0] - 2, 0), min(bomb_pos[0] + 2, dimensions[0])):
+        if blocks.count((x, bomb_pos[1])):
             count += 1
-    for y in xrange(max(bomb[1] - 2, 0), min(bomb[1] + 2, dimensions[1]):
-        if soft_blocks.count((bomb[0], y)):
+    for y in xrange(max(bomb_pos[1] - 2, 0), min(bomb_pos[1] + 2, dimensions[1])):
+        if blocks.count((bomb_pos[0], y)):
             count += 1
     return count
 
-def tile_to_bomb_if_opponent_not_trappable(matrix, opp_pos, game_state):
-    tup best_tile
+
+def tile_to_bomb_if_opponent_not_trappable(opp_pos, game_state):
+    best_tile = tup
     best_points = 0
 
-    for x in xrange(max(opp_pos[0] - 2, 0), min(opp_pos[0] + 2, game_state.size[0]):
+    for x in xrange(max(opp_pos[0] - 2, 0), min(opp_pos[0] + 2, game_state.size[0])):
         bomb_pos = (x, opp_pos[1])
-        if !game_state.is_occupied(bomb_pos):
+        if not game_state.is_occupied(bomb_pos):
             points = find_num_blocks_hit_by_bomb(bomb_pos, game_state.soft_blocks, game_state.size)
             # @Incomplete(isuru): Check ore hp
 #            points += 5 * find_num_blocks_hit_by_bomb(bomb_pos, game_state.ore_blocks, game_state.size)
@@ -97,15 +101,15 @@ def tile_to_bomb_if_opponent_not_trappable(matrix, opp_pos, game_state):
                 best_tile = bomb_pos
                 best_points = points
 
-    for y in xrange(max(opp_pos[1] - 2, 0), min(opp_pos[1] + 2, game_state.size[1]):
-        bomb_pos = (opp_pos[0], x)
-        if !game_state.is_occupied(bomb_pos):
+    for y in xrange(max(opp_pos[1] - 2, 0), min(opp_pos[1] + 2, game_state.size[1])):
+        bomb_pos = (opp_pos[0], y)
+        if not game_state.is_occupied(bomb_pos):
             points = find_num_blocks_hit_by_bomb(bomb_pos, game_state.soft_blocks, game_state.size)
             # @Incomplete(isuru): Check ore hp, we'll need to rejig
 #            points += 5 * find_num_blocks_hit_by_bomb(bomb_pos, game_state.ore_blocks, game_state.size)
             if points > best_points:
                 best_tile = bomb_pos
-                best_points = points    
+                best_points = points
 
     return best_tile
 
