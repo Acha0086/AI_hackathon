@@ -27,3 +27,8 @@
 - Use pathfinding algorithms to deteremine if can trap
 - Considerations for picking up bombs or going to trap them
 - HOW do we deteremine which locations they can be trapped? not necessarily just the one they are on right now?
+
+# Tasks to do as of 14/12:
+- Integrate bomb avoidance function with seeking_bomber.py
+- Improve check_trapped function
+- Focus on alternative objectives (not blowing up enemy) if they are not trappabl
