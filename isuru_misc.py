@@ -1,3 +1,8 @@
+# |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+# |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+# |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+# |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+# |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 
 
 # Looks for any bombs which were added in the previous tick and adds it to our own list of active bombs.
@@ -32,8 +37,6 @@ def find_hazard_tiles(bombs, tickses_remaining, dimensions):
         del bombs[index]
         del tickses_remaining[index]
 
-    # (isuru): I've done some simple tests that make me think that the reference golfing here
-    # should work fine. Are there any circumstances where it wouldn't?
     while len(new_bombs_to_detonate):
         those_bombs_which_chain = []
         for bomb in new_bombs_to_detonate:
@@ -74,6 +77,13 @@ def find_hazard_tiles(bombs, tickses_remaining, dimensions):
     return hazard_tiles, damage
 
 
+# |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+# |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+# |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+# |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+# |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+
+
 # Returns the number of blocks caught in a bomb's +.
 def find_num_blocks_hit_by_bomb(bomb_pos, blocks, dimensions):
     count = 0
@@ -112,4 +122,75 @@ def tile_to_bomb_if_opponent_not_trappable(opp_pos, game_state):
                 best_points = points
 
     return best_tile
+
+
+# |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+# |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+# |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+# |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+# |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+
+# This procedure takes in a string of prior moves and checks whether a closed loop is occurring. If there is one,
+# it returns that loop as a string, otherwise it returns an empty string. The string should have been constructed
+# based on a diff so that it represents the actual move made, not whatever would have been spat out by next_move().
+
+MAX_LOOP_LENGTH = 12
+
+# @Incomplete(isuru): Should we strip bomb placements and standstills?
+def detect_closed_loop(prior_moves):
+
+    strange_loop = None
+
+    # https://stackoverflow.com/questions/29481088/how-can-i-tell-if-a-string-repeats-itself-in-python
+    # Uses the fact that ABAB can be found in AB [ABAB] AB, so we can easily get the length of the first occurrence.
+    # (isuru): This method only works for strings which contain nothing but a single repeating substring,
+    #          therefore we will have to devise a way to get prior_moves into such a state.
+    def dzhang_repetition(dz_s):
+        i = (dz_s+dz_s).find(dz_s, 1, -1)
+        return None if i == -1 else dz_s[:i]
+
+    position = [0, 0]
+    def left(): position[0] -= 1
+    def right(): position[0] += 1
+    def up(): position[1] -= 1
+    def down(): position[1] += 1
+    def none(): pass
+
+    possible_moves = {
+        'l': left(),
+        'r': right(),
+        'u': up(),
+        'd': down(),
+        'p': none(),
+        'n': none()
+    }
+
+    # First we look for any repeating substrings, then we check that the substring constitutes a loop.
+    # @Cleanup(isuru): This is extremely dumb but since we will only call this once per tick + David is a real one
+    #                  it should be alright?? Can lower MAX_LOOP_LENGTH, I just picked a random number.
+    # @Cleanup(isuru): Some unnecessary arithmetic, remove once method works.
+    loop_length = min(MAX_LOOP_LENGTH, len(prior_moves))
+    while loop_length > 0:
+
+        strange_loop = dzhang_repetition(prior_moves[-(2 * loop_length):])
+        if strange_loop is not None:
+            position = [0, 0]
+            for move in strange_loop: possible_moves.get(move)
+
+            if (position[0] == 0) and (position[1] == 0):
+                return strange_loop                                    # Early termination (loop exists)
+
+        strange_loop = None
+        loop_length -= 1
+
+    return strange_loop                                                # Timely termination (No loop exists)
+
+test_string = "aathisisatestthisisatest"
+print(detect_closed_loop(test_string))
+
+# |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+# |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+# |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+# |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+# |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 
