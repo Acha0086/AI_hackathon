@@ -31,4 +31,8 @@
 # Tasks to do as of 14/12:
 - Integrate bomb avoidance function with seeking_bomber.py
 - Improve check_trapped function
-- Focus on alternative objectives (not blowing up enemy) if they are not trappabl
+- Focus on alternative objectives (not blowing up enemy) if they are not trappable
+
+## NEW STRATEGY 15/12
+- Main objective will be to go for chests + ammo
+- Only trap them if it is guaranteed
