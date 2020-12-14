@@ -4,7 +4,7 @@ import queue
 
 
 from numpy.core.numeric import Inf
-from copy import deepcopy
+# from copy import deepcopy
 
 from numpy.matrixlib.defmatrix import _convert_from_string
 
@@ -38,8 +38,8 @@ class agent:
         self.time = 0
         self.AP_detector_aux()
         trap = self.closest_trap_to_enemy()  # returns closest trap to enemy
-        print('Closest trap: ', trap)
-
+        # print('Closest trap: ', trap)
+        print(self.AP)
         # move towards trap
         if trap is not None:
             move = self.find_path_from_our_location(trap)
@@ -85,6 +85,55 @@ class agent:
 
         return matrix
 
+    def dfs_count(self, u):
+        """ runs dfs for one iteration in all 4 directions, until cannot go deeper, 
+            counts the number of blocks travelled
+            returns tuple (up, down, left, right) for number of blocks in each direction
+
+            NOTE: THIS DOES NOT COUNT EVERY BLOCK IN THE DIRECTION, ONLY A ROUGH INDICATOR
+            
+            u is the starting point for dfs
+        """
+        dir_count = [0, 0, 0, 0]
+
+        adjacent = self.get_adjacent(u)
+        for i in range(len(adjacent)):
+            self.visited = {}  ## this probably isnt good as a self variable
+            self.visited[u] = True
+
+            v = adjacent[i]
+            count = 0
+            if v[0] > 9 or v[0] < 0 or v[1] > 11 or v[1] < 0: # out of bounds
+                continue # do not increment count
+            if self.graph[v[0]][v[1]] == -1:  # block
+                continue # do not increment count
+            else:
+                count = self._dfs_count_aux(u, v)
+                dir_count[i] = count
+        
+        return tuple(dir_count)
+
+    def _dfs_count_aux(self, parent, u):
+        """ will be called multiple times """
+        next_u = None
+        for v in self.get_adjacent(u):
+            if v[0] > 9 or v[0] < 0 or v[1] > 11 or v[1] < 0: # out of bounds
+                continue
+            if self.graph[v[0]][v[1]] == -1:  # block
+                continue
+            if self.visited.get(v, False) is True:
+                continue
+            next_u = v
+            break
+
+        self.visited[u] = True
+        if next_u is None: # no more depth
+            return 1
+        else:
+            count = self._dfs_count_aux(u, next_u) + 1
+            return count
+
+
     def AP_detector(self, u, visited, AP, parent, low, disc):
         """ Recursive function for AP_detector_aux """
         children = 0
@@ -104,10 +153,17 @@ class agent:
                 self.AP_detector(v, visited, AP, parent, low, disc)
 
                 low[u] = min(low[u], low[v])
-                if parent[u] == -1 and children > 1:
-                    AP[u] = True
-                if parent[u] != -1 and low[v] >= disc[u]:
-                    AP[u] = True
+                if (parent[u] == -1 and children > 1) or (parent[u] != -1 and low[v] >= disc[u]):
+                    #### AARON FIX FOR BAD AP POINTS
+                    count = self.dfs_count(u)
+                    if 1 in count or 2 in count or 3 in count:
+                        AP[u] = True
+                    elif sum(count) - max(count) < 4: # experimental
+                        print("\n"*10)
+                        print(f"{sum(count)=} {max(count)=}")
+                        AP[u] = True
+                    ####
+
             elif v != parent[u]:
                 low[u] = min(low[u], disc[v])
 
@@ -219,32 +275,32 @@ class agent:
             print('random')
             return random.choice([''])
 
-    # def agent_main(self):
-    #     """ For running the python file in terminal without running game. """
+    def agent_main(self):
+        """ For running the python file in terminal without running game. """
 
-    #     self.graph = self.convert_to_graph(random_blocks())
-    #     print(self.graph)
+        self.graph = self.convert_to_graph(random_blocks())
+        print(self.graph)
 
-    #     # generate valid random locations
-    #     self.location = (random.randint(0, 9), random.randint(0, 11))  # our test location
-    #     self.opponent_location = (random.randint(0, 9), random.randint(0, 11))  # enemy test location
-    #     while self.graph[self.location[0]][self.location[1]] == -1:
-    #         self.location = (random.randint(0, 9), random.randint(0, 11))
-    #     while self.graph[self.opponent_location[0]][self.opponent_location[1]] == -1 or self.opponent_location == self.location:
-    #         self.opponent_location = (random.randint(0, 9), random.randint(0, 11))
+        # generate valid random locations
+        self.location = (random.randint(0, 9), random.randint(0, 11))  # our test location
+        self.opponent_location = (random.randint(0, 9), random.randint(0, 11))  # enemy test location
+        while self.graph[self.location[0]][self.location[1]] == -1:
+            self.location = (random.randint(0, 9), random.randint(0, 11))
+        while self.graph[self.opponent_location[0]][self.opponent_location[1]] == -1 or self.opponent_location == self.location:
+            self.opponent_location = (random.randint(0, 9), random.randint(0, 11))
         
-    #     self.time = 0
-    #     self.unreachable = False
-    #     self.AP_detector_aux()  # locate articulation points
-    #     trap = self.closest_trap_to_enemy()
-    #     if trap is not None:
-    #         move = self.find_path_from_our_location(trap)
-    #     else:
-    #         move = ''
-    #     if self.unreachable is True:
-    #         return False
-    #     else:
-    #         return move
+        self.time = 0
+        self.unreachable = False
+        self.AP_detector_aux()  # locate articulation points
+        trap = self.closest_trap_to_enemy()
+        if trap is not None:
+            move = self.find_path_from_our_location(trap)
+        else:
+            move = ''
+        if self.unreachable is True:
+            return False
+        else:
+            return move
 
     def check_trapped(self):
         """ Checks if enemy is trapped between you and 3 walls (in a 1x1 basically)
@@ -280,6 +336,8 @@ def random_blocks():
     return blocks
 
 if __name__ == "__main__":
-    pass
-    # a = agent()
-    # print(a.agent_main())
+    # pass
+    a = agent()
+    print(a.agent_main())
+
+    
