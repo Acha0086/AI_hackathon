@@ -28,30 +28,163 @@ class agent:
         self.opponent_location = self.xy_to_matrix(self.opponent_location)
 
         ammo = player_state.ammo
-        bombs = game_state.bombs
 
         # convert game board to graph
         blocks = self.game_state.all_blocks # THIS IS IN (x, y) FORM
         self.graph = self.convert_to_graph(blocks)
 
-        # determine articulation points as the trap
-        self.time = 0
-        self.AP_detector_aux()
-        trap = self.closest_trap_to_enemy()  # returns closest trap to enemy
-        # print('Closest trap: ', trap)
-        print(self.AP)
-        # move towards trap
-        if trap is not None:
-            move = self.find_path_from_our_location(trap)
-        else:
-            move = ''
-            print('No articulation points found')
+        # avoid exploding bombs is top priority
+        self.bomb_locations = game_state.bombs
+        if self.detect_nearby_bombs():
+            return self.evade_bombs()
+
+        # # determine articulation points as the trap
+        # self.time = 0
+        # self.AP_detector_aux()
+        # trap = self.closest_trap_to_enemy()  # returns closest trap to enemy
+        # # print('Closest trap: ', trap)
+        # # print(self.AP)
+        # # move towards trap
+        # if trap is not None:
+        #     move = self.find_path_from_our_location(trap)
+        # else:
+        #     move = ''
+        #     print('No articulation points found')
         
-        # The ALLAHU AKBAR function
-        if self.check_trapped():  # needs to be adapted to more scenarios (not just enemy surrounded by you and 3 walls)
-            return 'p'
+        # # The ALLAHU AKBAR function
+        # if self.check_trapped():  # needs to be adapted to more scenarios (not just enemy surrounded by you and 3 walls)
+        #     return 'p'
+        # else:
+        #     return move
+
+    def blast_radius(self, bomb):
+            radius = {}
+            if bomb[0] - 1 >= 0 and self.graph[bomb[0] - 1][bomb[1]] != -1:
+                radius[(bomb[0] - 1, bomb[1])] = True
+                if bomb[0] - 2 >= 0 and self.graph[bomb[0] - 2][bomb[1]] != -1:
+                    radius[(bomb[0] - 2, bomb[1])] = True
+            if bomb[0] + 1 <= 9 and self.graph[bomb[0] + 1][bomb[1]] != -1:
+                radius[(bomb[0] + 1, bomb[1])] = True
+                if bomb[0] + 2 <= 9 and self.graph[bomb[0] + 2][bomb[1]] != -1:
+                    radius[(bomb[0] + 2, bomb[1])] = True
+            if bomb[1] + 1 <= 11 and self.graph[bomb[0]][bomb[1] + 1] != -1:
+                radius[(bomb[0], bomb[1] + 1)] = True
+                if bomb[1] + 2 <= 11 and self.graph[bomb[0]][bomb[1] + 2] != -1:
+                    radius[(bomb[0], bomb[1] + 2)] = True
+            if bomb[1] - 1 >= 0 and self.graph[bomb[0]][bomb[1] - 1] != -1:
+                radius[(bomb[0], bomb[1] - 1)] = True
+                if bomb[1] - 2 >= 0 and self.graph[bomb[0]][bomb[1] - 2] != -1:
+                    radius[(bomb[0], bomb[1] - 2)] = True
+            return radius
+
+    def detect_nearby_bombs(self):
+        try:
+            if (len(self.bombs) < len(self.bomb_locations)):
+                for bomb in self.bomb_locations:
+                    bomb_coord = self.xy_to_matrix(bomb)
+                    if bomb_coord not in self.bombs:
+                        chain_bomb = None
+                        for tile in self.blast_radius(bomb_coord):
+                            if tile in self.bombs:
+                                if chain_bomb is None:
+                                    chain_bomb = tile
+                                elif self.bombs[tile] < self.bombs[chain_bomb]:
+                                    chain_bomb = tile
+                        if chain_bomb is not None:
+                            self.bombs[bomb_coord] = self.bombs[chain_bomb] + 1
+                        else:
+                            self.bombs[bomb_coord] = 36
+
+        except Exception as e:
+            print(e)
+            self.bombs = {}
+            for bomb in self.bomb_locations:
+                bomb_coord = self.xy_to_matrix(bomb)
+                self.bombs[bomb_coord] = 36
+
+        self.blast_radius_1tick = {}
+        self.blast_radius_2tick = {}
+        bombs_to_pop = []
+        for bomb in self.bombs:
+            self.bombs[bomb] -= 1
+            if self.bombs[bomb] == 0:
+                bombs_to_pop.append(bomb)
+                continue
+            if self.bombs[bomb] == 1:
+                for tile in self.blast_radius(bomb):
+                    print('t1 updated: ', self.blast_radius_1tick)
+                    self.blast_radius_1tick[tile] = True
+                continue
+            if self.bombs[bomb] == 2:
+                for tile in self.blast_radius(bomb):
+                    self.blast_radius_2tick[tile] = True
+                    print('t2 updated: ', self.blast_radius_2tick)
+
+        for bomb in bombs_to_pop:
+            self.bombs.pop(bomb)
+
+        for bomb in self.bombs:
+            print(f'Bomb at {bomb} boom in {self.bombs[bomb]} ticks')
+
+        if self.location in self.blast_radius_1tick:
+            return True
+        elif self.location in self.blast_radius_2tick:
+            return True
         else:
-            return move
+            return False
+
+    def evade_bombs(self):
+        q =  queue.SimpleQueue()
+        q.put((self.location, 0))
+        visited = {
+            self.location: True
+        }
+
+        safe = None
+        while not q.empty() and safe is None:
+            c_pos, d = q.get()  # current position
+            if d > 2:  # cannot escape within 2 moves
+                break
+            adjacent = self.get_adjacent(c_pos)
+            for a_pos in adjacent:  # adjacent position
+                if a_pos in self.bombs:
+                    continue
+                if a_pos[0] > 9 or a_pos[0] < 0 or a_pos[1] > 11 or a_pos[1] < 0:  # out of bounds
+                    continue
+                if self.graph[a_pos[0]][a_pos[1]] == -1:  # block
+                    continue
+                if a_pos in visited or a_pos == self.opponent_location:  # already visited
+                    continue
+                if d == 0 and not a_pos in self.blast_radius_1tick and not a_pos in self.blast_radius_2tick:
+                    safe = a_pos
+                    break
+                if d == 1 and not a_pos in self.blast_radius_2tick:
+                    if c_pos not in self.blast_radius_1tick:
+                        safe = c_pos
+                        break
+                visited[c_pos] = True
+                q.put((a_pos, d + 1))
+        if safe is None:
+            return ''
+
+        print(f't1: {self.blast_radius_1tick}')
+        print(f't2: {self.blast_radius_2tick}')
+        print(f'Going from {self.location} to {safe}')
+        diff_pos = (safe[0] - self.location[0], safe[1] - self.location[1]) 
+        if diff_pos[0] == -1:
+            print('up')
+            return 'u'
+        elif diff_pos[0] == 1:
+            print('down')
+            return 'd'
+        elif diff_pos[1] == -1:
+            print('left')
+            return 'l'
+        elif diff_pos[1] == 1:
+            print('right')
+            return 'r'
+        else:
+            return ''
 
     def xy_to_matrix(self, xy):
         return (9-xy[1], xy[0])
@@ -259,7 +392,7 @@ class agent:
             previous = pred[previous]
         path.append(self.location)
         path.reverse()
-        print('Path: ', path)
+        # print('Path: ', path)
 
         # return move
         diff_pos = (path[1][0] - self.location[0], path[1][1] - self.location[1]) 
@@ -277,30 +410,30 @@ class agent:
 
     def agent_main(self):
         """ For running the python file in terminal without running game. """
+        pass
+        # self.graph = self.convert_to_graph(random_blocks())
+        # print(self.graph)
 
-        self.graph = self.convert_to_graph(random_blocks())
-        print(self.graph)
-
-        # generate valid random locations
-        self.location = (random.randint(0, 9), random.randint(0, 11))  # our test location
-        self.opponent_location = (random.randint(0, 9), random.randint(0, 11))  # enemy test location
-        while self.graph[self.location[0]][self.location[1]] == -1:
-            self.location = (random.randint(0, 9), random.randint(0, 11))
-        while self.graph[self.opponent_location[0]][self.opponent_location[1]] == -1 or self.opponent_location == self.location:
-            self.opponent_location = (random.randint(0, 9), random.randint(0, 11))
+        # # generate valid random locations
+        # self.location = (random.randint(0, 9), random.randint(0, 11))  # our test location
+        # self.opponent_location = (random.randint(0, 9), random.randint(0, 11))  # enemy test location
+        # while self.graph[self.location[0]][self.location[1]] == -1:
+        #     self.location = (random.randint(0, 9), random.randint(0, 11))
+        # while self.graph[self.opponent_location[0]][self.opponent_location[1]] == -1 or self.opponent_location == self.location:
+        #     self.opponent_location = (random.randint(0, 9), random.randint(0, 11))
         
-        self.time = 0
-        self.unreachable = False
-        self.AP_detector_aux()  # locate articulation points
-        trap = self.closest_trap_to_enemy()
-        if trap is not None:
-            move = self.find_path_from_our_location(trap)
-        else:
-            move = ''
-        if self.unreachable is True:
-            return False
-        else:
-            return move
+        # self.time = 0
+        # self.unreachable = False
+        # self.AP_detector_aux()  # locate articulation points
+        # trap = self.closest_trap_to_enemy()
+        # if trap is not None:
+        #     move = self.find_path_from_our_location(trap)
+        # else:
+        #     move = ''
+        # if self.unreachable is True:
+        #     return False
+        # else:
+        #     return move
 
     def check_trapped(self):
         """ Checks if enemy is trapped between you and 3 walls (in a 1x1 basically)
@@ -336,8 +469,6 @@ def random_blocks():
     return blocks
 
 if __name__ == "__main__":
-    # pass
-    a = agent()
-    print(a.agent_main())
-
-    
+    pass
+    # a = agent()
+    # print(a.agent_main())
