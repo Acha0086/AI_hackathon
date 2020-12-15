@@ -36,6 +36,9 @@ class agent:
         blocks = self.game_state.all_blocks # THIS IS IN (x, y) FORM
         self.graph = self.convert_to_graph(blocks)
 
+        self.me_bfs_graph = self.get_bfs_graph(self.location)
+        self.opponent_bfs_graph = self.get_bfs_graph(self.opponent_location)
+
         # avoid exploding bombs is top priority
         self.bomb_locations = game_state.bombs
         self.detect_nearby_bombs()
@@ -58,10 +61,12 @@ class agent:
         if self.check_trapped():  # needs to be adapted to more scenarios (not just enemy surrounded by you and 3 walls)
             self.action = 'p'
         else:
-            ##########################
-            # NEW OBJECTIVE STRATEGY #
-            ##########################
-            pass
+            if len(self.game_state.treasure) > 0:
+                treasure_location = self.find_agressive_treasure()
+                self.action = self.find_path_from_our_location(treasure_location)
+            else: # NO TREASURE
+                pass
+
 
         # Ensure bot does not walk into active bomb blast
         if len(self.remnant_blast) > 0:
@@ -78,6 +83,7 @@ class agent:
                 if (self.location[0], self.location[1] + 1) in self.remnant_blast[self.game_state_tick]:
                     self.action = ''
         # print('I chose to go', self.action, ' from location ', self.location)
+
         return self.action
         
     def walkable_node(self, node):
@@ -371,9 +377,9 @@ class agent:
         return closest_trap
 
 
-    def find_path_from_our_location(self, trap_location):
+    def find_path_from_our_location(self, destination):
         """ Finds path to trap location. """
-        if self.location == trap_location:
+        if self.location == destination:
             return ''
         q =  queue.SimpleQueue()
         q.put(self.location)
@@ -385,7 +391,7 @@ class agent:
             c_pos = q.get() # current position
             adjacent = self.get_adjacent(c_pos)
             for a_pos in adjacent: # adjacent position
-                if a_pos == trap_location:
+                if a_pos == destination:
                     reached = True
                     pred[a_pos] = c_pos
                     break
@@ -397,20 +403,20 @@ class agent:
                 visited[c_pos] = True
                 q.put(a_pos)
 
-        if trap_location not in pred:
+        if destination not in pred:
             # cannot reach trap from our location
             self.unreachable = True
             print('We cannot reach the closest trap')  # Consider going for other objectives in that case
             return random.choice([''])
         
         # Calculate path
-        path = [trap_location]
-        previous = pred[trap_location]
+        path = [destination]
+        previous = pred[destination]
         while previous != self.location:
             path.append(previous)
             previous = pred[previous]
         path.append(self.location)
-        path.reverse()
+        path.reverse() ## AARON:  FREE OPTIMISATION IF YOU DONT REVERSE, we dont need full path?
         # print('Path: ', path)
 
         # return move
@@ -461,16 +467,72 @@ class agent:
         """
         if abs(self.location[0] - self.opponent_location[0]) + abs(self.location[1] - self.opponent_location[1]):
             walkable_neighbours = 0
-            for neighbours in self.get_adjacent(self.opponent_location):
-                if not self.walkable_node(neighbours):
+            for neighbour in self.get_adjacent(self.opponent_location):
+                if not self.walkable_node(neighbour):
                     continue
-                if neighbours == self.location:
+                if neighbour == self.location:
                     continue
                 walkable_neighbours += 1
             if walkable_neighbours > 0:
                 return False
             else:
                 return True
+
+    #############################################################
+
+    def get_bfs_graph(self, player_pos):
+        bfs_graph = self.graph.copy()
+        q =  queue.SimpleQueue()
+        q.put((player_pos, 0))
+
+        while not q.empty():
+            node, d = q.get()
+
+            for neighbour in self.get_adjacent(self.opponent_location):
+                if neighbour[0] > 9 or neighbour[0] < 0 or neighbour[1] > 11 or neighbour[1] < 0: # out of bounds
+                    continue 
+                if bfs_graph[neighbour[0]][neighbour[1]] == -1: # block
+                    continue
+                if bfs_graph[neighbour[0]][neighbour[1]] != 0: # already visited
+                    continue
+
+                new_dist = d+1
+                q.put((neighbour, new_dist))
+            
+            bfs_graph[node[0]][node[1]] = d
+        
+        bfs_graph[player_pos[0]][player_pos[1]] = 0
+        return bfs_graph
+
+    def find_agressive_treasure(self):
+        me_closest_dist = 99
+        me_closest_pos = None
+
+        opponent_closest_dist = 99
+        opponent_closest_pos = None
+
+        # gets closest treasure for each person
+        for t_pos in self.game_state.treasure:
+            t_pos = self.xy_to_matrix(t_pos)
+
+            if self.me_bfs_graph[t_pos[0]][t_pos[1]] < me_closest_dist:
+                me_closest_dist = self.me_bfs_graph[t_pos[0]][t_pos[1]]
+                me_closest_pos = t_pos
+            
+            if self.opponent_bfs_graph[t_pos[0]][t_pos[1]] < opponent_closest_dist:
+                opponent_closest_dist = self.opponent_bfs_graph[t_pos[0]][t_pos[1]]
+                opponent_closest_pos = t_pos
+        
+        if (opponent_closest_pos is not None and me_closest_pos is not None) and  \
+            self.me_bfs_graph[opponent_closest_pos[0]][opponent_closest_pos[1]] < opponent_closest_dist:
+            # hijack opponent one, if you are closer
+            return opponent_closest_pos
+        elif me_closest_pos is not None:
+            return me_closest_pos
+        else:
+            print("NO MOVE CUS NO TREASURE")
+            return ''
+
 
 def random_blocks():
     """ Generate 43 random blocks (board always starts with 43)
