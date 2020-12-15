@@ -30,7 +30,7 @@ class agent:
         self.opponent_location = game_state.opponents(player_state.id)[0]
         self.opponent_location = self.xy_to_matrix(self.opponent_location)
 
-        ammo = player_state.ammo
+        # ammo = player_state.ammo
 
         # convert game board to graph
         blocks = self.game_state.all_blocks # THIS IS IN (x, y) FORM
@@ -62,10 +62,14 @@ class agent:
             self.action = 'p'
         else:
             if len(self.game_state.treasure) > 0:
-                treasure_location = self.find_agressive_treasure()
+                treasure_location = self.find_agressive_resource("t")
                 self.action = self.find_path_from_our_location(treasure_location)
-            else: # NO TREASURE
-                pass
+            elif len(self.game_state.ammo) > 0:
+                ammo_location = self.find_agressive_resource("a")
+                self.action = self.find_path_from_our_location(ammo_location)
+            else:
+                print("NO MOVE FOUND")
+                self.action = ''
 
 
         # Ensure bot does not walk into active bomb blast
@@ -504,24 +508,29 @@ class agent:
         bfs_graph[player_pos[0]][player_pos[1]] = 0
         return bfs_graph
 
-    def find_agressive_treasure(self):
+    def find_agressive_resource(self, res="t"):
         me_closest_dist = 99
         me_closest_pos = None
 
         opponent_closest_dist = 99
         opponent_closest_pos = None
 
-        # gets closest treasure for each person
-        for t_pos in self.game_state.treasure:
-            t_pos = self.xy_to_matrix(t_pos)
+        if res == "t":
+            resource = self.game_state.treasure
+        elif res == "a":
+            resource = self.game_state.ammo
 
-            if self.me_bfs_graph[t_pos[0]][t_pos[1]] < me_closest_dist:
-                me_closest_dist = self.me_bfs_graph[t_pos[0]][t_pos[1]]
-                me_closest_pos = t_pos
+        # gets closest treasure for each person
+        for pos in resource:
+            pos = self.xy_to_matrix(pos)
+
+            if self.me_bfs_graph[pos[0]][pos[1]] < me_closest_dist:
+                me_closest_dist = self.me_bfs_graph[pos[0]][pos[1]]
+                me_closest_pos = pos
             
-            if self.opponent_bfs_graph[t_pos[0]][t_pos[1]] < opponent_closest_dist:
-                opponent_closest_dist = self.opponent_bfs_graph[t_pos[0]][t_pos[1]]
-                opponent_closest_pos = t_pos
+            if self.opponent_bfs_graph[pos[0]][pos[1]] < opponent_closest_dist:
+                opponent_closest_dist = self.opponent_bfs_graph[pos[0]][pos[1]]
+                opponent_closest_pos = pos
         
         if (opponent_closest_pos is not None and me_closest_pos is not None) and  \
             self.me_bfs_graph[opponent_closest_pos[0]][opponent_closest_pos[1]] < opponent_closest_dist:
@@ -530,7 +539,7 @@ class agent:
         elif me_closest_pos is not None:
             return me_closest_pos
         else:
-            print("NO MOVE CUS NO TREASURE")
+            print("NO MOVE CUS NOthing found")
             return ''
 
 
