@@ -117,26 +117,37 @@ class agent:
                 ##########################
 
                 # box blowing
-                goal_count = 3
-                box_locations = self.find_good_box_location(goal_count) # only looks for locations with 3
-                if len(box_locations) == 0:
-                    goal_count = 2
-                    box_locations = self.find_good_box_location(goal_count)
-                if len(box_locations) == 0:
-                    goal_count = 1
-                    box_locations = self.find_good_box_location(goal_count)
+                if len(self.game_state.soft_blocks) > 0:
+                    goal_count = 3
+                    box_locations = self.find_good_box_location(goal_count) # only looks for locations with 3
+                    if len(box_locations) == 0:
+                        goal_count = 2
+                        box_locations = self.find_good_box_location(goal_count)
+                    if len(box_locations) == 0:
+                        goal_count = 1
+                        box_locations = self.find_good_box_location(goal_count)
 
 
-                # gets closest box place
-                min_box_dist = 99
-                min_box_pos = None
-                for pos in box_locations: 
-                    if self.me_bfs_graph[pos[0]][pos[1]] < min_box_dist and self.me_bfs_graph[pos[0]][pos[1]] != 0:
-                        min_box_dist = self.me_bfs_graph[pos[0]][pos[1]]
-                        min_box_pos = pos
+                    # gets closest box place
+                    min_box_dist = 99
+                    min_box_pos = None
+                    for pos in box_locations: 
+                        if self.me_bfs_graph[pos[0]][pos[1]] < min_box_dist and self.me_bfs_graph[pos[0]][pos[1]] != 0:
+                            min_box_dist = self.me_bfs_graph[pos[0]][pos[1]]
+                            min_box_pos = pos
+                else:
+                    box_locations = self.find_good_ore_location()
+                    # gets closest box place
+                    min_box_dist = 99
+                    min_box_pos = None
+                    for pos in box_locations: 
+                        if self.me_bfs_graph[pos[0]][pos[1]] < min_box_dist and self.me_bfs_graph[pos[0]][pos[1]] != 0:
+                            min_box_dist = self.me_bfs_graph[pos[0]][pos[1]]
+                            min_box_pos = pos
 
                 if self.player_state.ammo > 1:
-                    if (self._count_box(self.location) == 3 or self._count_box(self.location) == goal_count) and self.game_state.entity_at(self.matrix_to_xy(self.location)) != "b":
+                    if ((self._count_box(self.location) == 3 or self._count_box(self.location) == goal_count) and self.game_state.entity_at(self.matrix_to_xy(self.location)) != "b") \
+                        or (len(self.game_state.soft_blocks) == 0 and self.location in self.get_adjacent(min_box_pos)):
                         self.action = "p"
                         print("placing bomb")
                         return self.action
@@ -171,7 +182,8 @@ class agent:
                     return self.action
                 else:
                     if self.player_state.ammo > 1:
-                        if (self._count_box(self.location) == 2 or self._count_box(self.location) == goal_count) and self.game_state.entity_at(self.matrix_to_xy(self.location)) != "b":
+                        if ((self._count_box(self.location) == 2 or self._count_box(self.location) == goal_count) and self.game_state.entity_at(self.matrix_to_xy(self.location)) != "b") \
+                            or (len(self.game_state.soft_blocks) == 0 and self.location in self.get_adjacent(min_box_pos)):
                             print("PLANTING BOMB")
                             self.action = "p"
                             return self.action
@@ -761,6 +773,23 @@ class agent:
                     box_count += 1
         
         return box_count
+
+    def find_good_ore_location(self):
+        ore_location = []
+
+        for row in range(10):
+            for col in range(12):
+                if self.game_state.entity_at(self.matrix_to_xy((row, col))) is not None:
+                    continue
+                if self.me_bfs_graph[row][col] == 0 or self.me_bfs_graph[row][col] == -1: # inaccessible
+                    continue
+                if self.game_state.entity_at(self.matrix_to_xy((row, col))) == "b":
+                    print('bomb here ignore' * 100)
+                    continue
+
+                ore_location.append((row, col))
+        
+        return ore_location
 
 if __name__ == "__main__":
     pass
