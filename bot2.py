@@ -261,9 +261,9 @@ class agent:
 
     def xy_to_matrix(self, xy):
         return (9 - xy[1], xy[0])
-
+    
     def matrix_to_xy(self, xy):
-        return (xy[0], 9 - xy[1])
+        return (xy[1], 9 - xy[0])
 
     def get_adjacent(self, pos):
         """ returns list of adjacent (up, down, left, right)
@@ -272,10 +272,10 @@ class agent:
                 - returns in MATRIX form
         """
         adjacent = [
-            (pos[0], pos[1] - 1),  # up
-            (pos[0], pos[1] + 1),  # down
-            (pos[0] - 1, pos[1]),  # left
-            (pos[0] + 1, pos[1])  # right
+            (pos[0] - 1, pos[1]), # up
+            (pos[0] + 1, pos[1]),  # down
+            (pos[0], pos[1] - 1), # left
+            (pos[0], pos[1] + 1), # right
         ]
         return adjacent
 
@@ -593,6 +593,48 @@ class agent:
             print("NO MOVE CUS NOthing found")
             return ''
 
+    def find_good_box_location(self, num=3):
+        box_locations = []
+
+        for row in range(10):
+            for col in range(12):
+                if self.game_state.entity_at(self.matrix_to_xy((row, col))) is not None:
+                    continue
+                if self.me_bfs_graph[row][col] == 0 or self.me_bfs_graph[row][col] == -1: # inaccessible
+                    continue
+
+                box_count = self._count_box((row, col))
+                    
+                if box_count == num:
+                    box_locations.append((row, col))
+        
+        return box_locations
+
+    def _count_box(self, pos):
+        box_count = 0
+        for i, a_pos in enumerate(self.get_adjacent(pos)):
+            if a_pos[0] > 9 or a_pos[0] < 0 or a_pos[1] > 11 or a_pos[1] < 0: # out of bounds
+                continue
+            if self.game_state.entity_at(self.matrix_to_xy(a_pos)) == "sb": # wooden block
+                box_count += 1
+                continue
+            elif self.game_state.entity_at(self.matrix_to_xy(a_pos)) in [None, "a", "t", self.player_state.id]: # empty air, check if adjacent one is wooden, can also blow
+
+                if i == 0: # up
+                    a_pos_2 = (a_pos[0] - 1, a_pos[1])
+                elif i == 1: # down
+                    a_pos_2 = (a_pos[0] + 1, a_pos[1])
+                elif i == 2: # left
+                    a_pos_2 = (a_pos[0], a_pos[1] - 1)
+                elif i == 3:  # right
+                    a_pos_2 = (a_pos[0], a_pos[1] + 1)
+
+                if a_pos_2[0] > 9 or a_pos_2[0] < 0 or a_pos_2[1] > 11 or a_pos_2[1] < 0: # out of bounds
+                    continue
+                elif self.game_state.entity_at(self.matrix_to_xy(a_pos_2)) == "sb":
+                    box_count += 1
+        
+        return box_count
 
 if __name__ == "__main__":
     pass
