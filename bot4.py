@@ -130,6 +130,8 @@ class agent:
             if len(box_locations) == 0:
                 goal_count = 1
                 box_locations = self.find_good_box_location(goal_count)
+
+
             # gets closest box place
             min_box_dist = 99
             min_box_pos = None
@@ -145,6 +147,17 @@ class agent:
                     return self.action
                 elif goal_count == 3:
                     self.action = self.find_path_from_our_location(min_box_pos)
+
+                    if self.action is None:
+                        if len(box_locations) > 1:
+                            while self.action is None:
+                                min_box_pos = random.choice(box_locations)
+                                self.action = self.find_path_from_our_location(min_box_pos)
+                        else:
+                            box_locations = self.find_good_box_location(goal_count - 1)
+                            min_box_pos = random.choice(box_locations)
+                            self.action = self.find_path_from_our_location(min_box_pos)
+
                     print("MOVING2")
                     return self.action
 
@@ -167,6 +180,17 @@ class agent:
                         return self.action
                     else:
                         self.action = self.find_path_from_our_location(min_box_pos)
+
+                        if self.action is None:
+                            if len(box_locations) > 1:
+                                while self.action is None:
+                                    min_box_pos = random.choice(box_locations)
+                                    self.action = self.find_path_from_our_location(min_box_pos)
+                            else:
+                                box_locations = self.find_good_box_location(goal_count - 1)
+                                min_box_pos = random.choice(box_locations)
+                                self.action = self.find_path_from_our_location(min_box_pos)
+
                         print("MOVING")
                         return self.action
 
