@@ -38,7 +38,7 @@ class agent:
         self.opponent_bfs_graph = self.get_bfs_graph(self.opponent_location)
         self.locate_deadends()
         
-        if self.check_trapped() and self.player_state.ammo > 1:
+        if self.check_trapped():
             print('ALLAHU AKBAR')
             return 'p'
         print('No allahu akbar :(')
@@ -48,11 +48,17 @@ class agent:
             # print('evade bomb')
             return self.action
 
-        closest_junction = self.closest_junction()
-        if closest_junction != self.location:
-            self.action = self.find_path_from_our_location(closest_junction)
-            print('Junction: ', self.action)
-            return self.action
+        # print('evaded')
+        # return ''
+        
+        
+
+        # if no ammo, get ammo
+        # closest_junction = self.closest_junction()
+        # if closest_junction != self.location:
+        #     # self.action = self.find_path_from_our_location(closest_junction)
+        #     print('Junction: ', self.action)
+        #     return self.action
         # go to closest trap to enemy
         # self.locate_deadends()
         closest_trap = self.target_AP()
@@ -148,11 +154,9 @@ class agent:
                                 min_box_pos = random.choice(box_locations)
                                 self.action = self.find_path_from_our_location(min_box_pos)
                         else:
-                            goal_count -= 1
-                            if goal_count != 0:
-                                box_locations = self.find_good_box_location(goal_count)
-                                min_box_pos = random.choice(box_locations)
-                                self.action = self.find_path_from_our_location(min_box_pos)
+                            box_locations = self.find_good_box_location(goal_count - 1)
+                            min_box_pos = random.choice(box_locations)
+                            self.action = self.find_path_from_our_location(min_box_pos)
 
                     print("MOVING2")
                     return self.action
@@ -170,7 +174,7 @@ class agent:
                 return self.action
             else:
                 if self.player_state.ammo > 1:
-                    if (self._count_box(self.location) == 2 or self._count_box(self.location) == goal_count) and self.game_state.entity_at(self.matrix_to_xy(self.location)) != "b":
+                    if (self._count_box(self.location) == 3 or self._count_box(self.location) == goal_count) and self.game_state.entity_at(self.matrix_to_xy(self.location)) != "b":
                         print("PLANTING BOMB")
                         self.action = "p"
                         return self.action
@@ -183,12 +187,11 @@ class agent:
                                     min_box_pos = random.choice(box_locations)
                                     self.action = self.find_path_from_our_location(min_box_pos)
                             else:
-                                goal_count -= 1
-                                if goal_count != 0:
-                                    box_locations = self.find_good_box_location(goal_count)
-                                    min_box_pos = random.choice(box_locations)
-                                    self.action = self.find_path_from_our_location(min_box_pos)
-                        print("MOVING", min_box_pos )
+                                box_locations = self.find_good_box_location(goal_count - 1)
+                                min_box_pos = random.choice(box_locations)
+                                self.action = self.find_path_from_our_location(min_box_pos)
+
+                        print("MOVING")
                         return self.action
 
                 print('No move found location: ', self.location)
@@ -408,9 +411,6 @@ class agent:
                         self.reachable_trap = True
                         # print('Returned new pos!')
                         return a_pos
-            if self.me_bfs_graph[temp_location[0]][temp_location[1]] == 0 and self.opponent_bfs_graph[temp_location[0]][temp_location[1]] == 0 and self.location != self.opponent_location:
-                self.reachable_trap = False
-                continue
             if self.AP[temp_location] <= threshold:
                 if self.AP[temp_location] == 0:
                     if self.opponent_location == temp_location:
