@@ -113,6 +113,24 @@ class agent:
             ##########################
             # NEW OBJECTIVE STRATEGY #
             ##########################
+
+            # box blowing
+            goal_count = 3
+            box_locations = self.find_good_box_location(goal_count) # only looks for locations with 3
+            if len(box_locations) == 0:
+                goal_count = 2
+                box_locations = self.find_good_box_location(goal_count)
+            # gets closest box place
+            min_box_dist = 99
+            min_box_pos = None
+            for pos in box_locations: 
+                if self.me_bfs_graph[pos[0]][pos[1]] < min_box_dist and self.me_bfs_graph[pos[0]][pos[1]] != 0:
+                    min_box_dist = self.me_bfs_graph[pos[0]][pos[1]]
+                    min_box_pos = pos
+
+            # if ammo > 0 and 
+
+            
             if len(self.game_state.treasure) > 0:
                 treasure_location = self.find_agressive_resource("t")
                 self.action = self.find_path_from_our_location(treasure_location)
