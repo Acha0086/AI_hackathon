@@ -25,7 +25,7 @@ class agent:
         self.opponent_location = game_state.opponents(player_state.id)[0]
         self.opponent_location = self.xy_to_matrix(self.opponent_location)
 
-        self.reachable_trap = False
+        self.reachable_trap = True
 
         # convert game board to graph
         blocks = self.game_state.all_blocks # THIS IS IN (x, y) FORM
@@ -36,24 +36,22 @@ class agent:
         self.detect_nearby_bombs()
         self.evade_bombs()
         if self.action is not None:
-            # print('evade bomb')
             return self.action
 
         # print('evaded')
         # return ''
         self.me_bfs_graph = self.get_bfs_graph(self.location)
-        print(self.me_bfs_graph)
         self.opponent_bfs_graph = self.get_bfs_graph(self.opponent_location)
         self.locate_deadends()
 
         # if no ammo, get ammo
-        # closest_junction = self.closest_junction()
-        # if closest_junction != self.location:
-        #     # self.action = self.find_path_from_our_location(closest_junction)
-        #     print('Junction: ', self.action)
-        #     return self.action
+        closest_junction = self.closest_junction()
+        if closest_junction != self.location:
+            # self.action = self.find_path_from_our_location(closest_junction)
+            return self.action
+
         # go to closest trap to enemy
-        # self.locate_deadends()
+        self.locate_deadends()
         closest_trap = self.target_AP()
         if closest_trap is not None:
             if closest_trap == self.location:
@@ -61,19 +59,18 @@ class agent:
                 pass
             else:
                 if closest_trap not in self.bombs and closest_trap not in self.remnant_blast:
-                    print('Try trap them')
+                    # print('Try trap them')
                     self.action = self.find_path_from_our_location(closest_trap)
                     if self.action is not None:
-                        print('move to make: ', self.action, f' to get from {self.location} to {closest_trap}')
+                        # print('move to make: ', self.action, f' to get from {self.location} to {closest_trap}')
                         # return ''
                         return self.action
                     else:
-                        print('Not trappable')
+                        self.reachable_trap = False
                         # unreachable
-                else:
-                    print('here')
-        print('9', self.location)
+
         if self.reachable_trap:
+            # The ALLAHU AKBAR function
             if self.check_trapped():
                 if self.location not in self.bombs:
                     self.action = 'p'
@@ -81,51 +78,24 @@ class agent:
                 else:
                     adjacent = self.get_adjacent(self.location)
                     for a_pos in adjacent:
-                        print('1')
                         if self.walkable_node(a_pos) and a_pos not in self.deadends and a_pos not in self.bombs:
                             self.action = self.find_path_from_our_location(a_pos)
                             # print('Dodge bomb by going: ', self.action)
-                        return self.action
-            elif self.me_bfs_graph[closest_trap[0]][closest_trap[1]] == self.opponent_bfs_graph[closest_trap[0]][closest_trap[1]]:
-                print('blah')
-                return ''
-            else:
-                print('10', self.location)
-                ##########################
-                # NEW OBJECTIVE STRATEGY #
-                ##########################
-                if len(self.game_state.treasure) > 0:
-                    treasure_location = self.find_agressive_resource("t")
-                    self.action = self.find_path_from_our_location(treasure_location)
-                    print('go treasure ', self.action)
-                if self.action is None and len(self.game_state.ammo) > 0:
-                    ammo_location = self.find_agressive_resource("a")
-                    self.action = self.find_path_from_our_location(ammo_location)
-                    print('go ammo ', self.action)
-                if self.action is not None:
-                    print('Go to objective moving ', self.action)
-                    return self.action
-                else:
-                    print('No move found location: ', self.location)
-                    return ''
+                            return self.action
         else:
-            print('10', self.location)
             ##########################
             # NEW OBJECTIVE STRATEGY #
             ##########################
             if len(self.game_state.treasure) > 0:
                 treasure_location = self.find_agressive_resource("t")
                 self.action = self.find_path_from_our_location(treasure_location)
-                print('go treasure ', self.action)
             if self.action is None and len(self.game_state.ammo) > 0:
                 ammo_location = self.find_agressive_resource("a")
                 self.action = self.find_path_from_our_location(ammo_location)
-                print('go ammo ', self.action)
             if self.action is not None:
-                print('Go to objective moving ', self.action)
                 return self.action
             else:
-                print('No move found location: ', self.location)
+                print('No move found')
                 return ''
 
         # Ensure bot does not walk into active bomb blast
@@ -324,7 +294,7 @@ class agent:
     def target_AP(self):
         """ Finds closest articulation point to enemy. """
         AP_list = sorted(self.AP.items(), key=lambda x: x[1])
-        threshold = 1
+        threshold = 4
         destination = None
         # print(f'APs: {self.AP}')
         # print('DEs: ', self.deadends)
@@ -339,7 +309,6 @@ class agent:
                 adjacent = self.get_adjacent(self.opponent_location)
                 for a_pos in adjacent:
                     if a_pos in self.AP:
-                        self.reachable_trap = True
                         # print('Returned new pos!')
                         return a_pos
             if self.AP[temp_location] <= threshold:
@@ -358,10 +327,6 @@ class agent:
                             # print('should recognise and move')
                             destination = temp_location
                             break
-                        else:
-                            print('Do nothing at location', self.location)
-                            self.reachable_trap = True
-                            return self.location
                         # disregard AP since we are closer
                         continue
                     elif self.me_bfs_graph[temp_location[0]][temp_location[1]] > self.AP[temp_location]:
@@ -376,13 +341,10 @@ class agent:
             else:
                 break  # no locations within threshold
         # print('Destination: ', destination)
-        if destination is not None:
-            self.reachable_trap = True
         return destination
 
     def find_path_from_our_location(self, destination):
         """ Finds path to trap location. """
-        print('Find path from ', self.location, ' to ', destination)
         if self.location == destination:
             return ''
         q = queue.SimpleQueue()
@@ -609,20 +571,19 @@ class agent:
             resource = self.game_state.treasure
         elif res == "a":
             resource = self.game_state.ammo
-        print(resource)
+
         # gets closest treasure for each person
         for pos in resource:
             pos = self.xy_to_matrix(pos)
 
-            if self.me_bfs_graph[pos[0]][pos[1]] < me_closest_dist and self.me_bfs_graph[pos[0]][pos[1]] != 0:
+            if self.me_bfs_graph[pos[0]][pos[1]] < me_closest_dist:
                 me_closest_dist = self.me_bfs_graph[pos[0]][pos[1]]
                 me_closest_pos = pos
 
-            if self.opponent_bfs_graph[pos[0]][pos[1]] < opponent_closest_dist and self.opponent_bfs_graph[pos[0]][pos[1]] != 0:
+            if self.opponent_bfs_graph[pos[0]][pos[1]] < opponent_closest_dist:
                 opponent_closest_dist = self.opponent_bfs_graph[pos[0]][pos[1]]
                 opponent_closest_pos = pos
 
-            print(me_closest_pos, opponent_closest_pos)
         if (opponent_closest_pos is not None and me_closest_pos is not None) and  \
             self.me_bfs_graph[opponent_closest_pos[0]][opponent_closest_pos[1]] < opponent_closest_dist:
             # hijack opponent one, if you are closer
