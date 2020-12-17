@@ -13,16 +13,12 @@ import random
 import numpy
 import queue
 
-
 class agent:
     block_int = -1
 
     def __init__(self):
         self.previous_locations = {}
         self.previous_locations_order = queue.SimpleQueue()
-        self.bombs = {}
-        self.remnant_blast = {}
-        self.target = None
 
     def next_move(self, game_state, player_state):
         self.game_state_tick = game_state.tick_number
@@ -35,7 +31,7 @@ class agent:
         self.location = self.xy_to_matrix(player_state.location)
         self.opponent_location = game_state.opponents(player_state.id)[0]
         self.opponent_location = self.xy_to_matrix(self.opponent_location)
-
+        
         blocks = self.game_state.all_blocks # THIS IS IN (x, y) FORM
         self.graph = self.convert_to_graph(blocks)
 
@@ -126,7 +122,7 @@ class agent:
                 ##########################
 
                 # box blowing
-                if len(self.game_state.soft_blocks) > 5:
+                if len(self.game_state.soft_blocks) > 0:
                     goal_count = 3
                     box_locations = self.find_good_box_location(goal_count) # only looks for locations with 3
                     if len(box_locations) == 0:
@@ -180,16 +176,9 @@ class agent:
 
                 if self.player_state.ammo > 1:
                     if ((self._count_box(self.location) == 3 or self._count_box(self.location) == goal_count) and self.game_state.entity_at(self.matrix_to_xy(self.location)) != "b") \
-                        or (self.location == min_box_pos and self.location not in self.deadends):
-                        neighbour_ore = False
-                        for tile in self.blast_radius2(self.location):
-                            if self.game_state.entity_at(self.matrix_to_xy(tile)) == 'ob' or self.game_state.entity_at(self.matrix_to_xy(tile)) == 'sb':
-                                neighbour_ore = True
-                        if neighbour_ore:
-                            self.action = "p"
-                            return self.action
-                        else:
-                            pass
+                        or self.location == min_box_pos:
+                        self.action = "p"
+                        return self.action
                     elif goal_count == 3:
                         self.action = self.find_path_from_our_location(min_box_pos)
 
@@ -204,6 +193,7 @@ class agent:
                                     box_locations = self.find_good_box_location(goal_count)
                                     min_box_pos = random.choice(box_locations)
                                     self.action = self.find_path_from_our_location(min_box_pos)
+
                         return self.action
 
                 if len(self.game_state.ammo) > 0:
@@ -222,64 +212,24 @@ class agent:
                             if self.game_state.entity_at(self.matrix_to_xy(a_pos)) == 'ob':
                                 ore_neighbour = True
                         if ((self._count_box(self.location) == 2 or self._count_box(self.location) == goal_count) and self.game_state.entity_at(self.matrix_to_xy(self.location)) != "b") \
-                            or (self.location == min_box_pos and ore_neighbour and self.location not in self.deadends):
-                            neighbour_ore = False
-                            for tile in self.blast_radius2(self.location):
-                                if self.game_state.entity_at(self.matrix_to_xy(tile)) == 'ob' or self.game_state.entity_at(self.matrix_to_xy(tile)) == 'sb':
-                                    neighbour_ore = True
-                            if neighbour_ore:
-                                self.action = "p"
-                                return self.action
-                            else:
-                                pass
-                        else:
-                            # self.action = self.find_path_from_our_location(min_box_pos)
-                            # if self.action is None:
-                            if len(box_locations) > 1:
-                                while self.action is None:
-                                    if self.target is not None:
-                                        if self.me_bfs_graph[min_box_pos[0]][min_box_pos[1]] != -1:
-                                            self.target = None
-                                        else:
-                                            adj = self.get_adjacent(min_box_pos)
-                                            for a_pos in adj:
-                                                if self.me_bfs_graph[a_pos[0]][a_pos[1]] != 0 or self.location in adj:
-                                                    self.action = self.find_path_from_our_location(min_box_pos)
-                                                    self.target = min_box_pos
-                                                    break
-                                    else:
-                                        min_box_pos = random.choice(box_locations)
-                                        adj = self.get_adjacent(min_box_pos)
-                                        for a_pos in adj:
-                                            if self.me_bfs_graph[a_pos[0]][a_pos[1]] != 0 or self.location in adj:
-                                                self.action = self.find_path_from_our_location(min_box_pos)
-                                                self.target = min_box_pos
-                                                break
-                                    # self.action = self.find_path_from_our_location(min_box_pos)
-                            else:
-                                goal_count -= 1
-                                if goal_count != 0:
-                                    while self.action is None:
-                                        if self.target is not None:
-                                            if self.me_bfs_graph[min_box_pos[0]][min_box_pos[1]] != -1:
-                                                self.target = None
-                                            else:
-                                                adj = self.get_adjacent(min_box_pos)
-                                                for a_pos in adj:
-                                                    if self.me_bfs_graph[a_pos[0]][a_pos[1]] != 0 or self.location in adj:
-                                                        self.action = self.find_path_from_our_location(min_box_pos)
-                                                        self.target = min_box_pos
-                                                        break
-                                        else:
-                                            box_locations = self.find_good_box_location(goal_count)
-                                            min_box_pos = random.choice(box_locations)
-                                            adj = self.get_adjacent(min_box_pos)
-                                            for a_pos in adj:
-                                                if self.me_bfs_graph[a_pos[0]][a_pos[1]] != 0 or self.location in adj:
-                                                    self.action = self.find_path_from_our_location(min_box_pos)
-                                                    self.target = min_box_pos
-                                                    break
+                            or (self.location == min_box_pos and ore_neighbour):
+                            self.action = "p"
                             return self.action
+                        else:
+                            self.action = self.find_path_from_our_location(min_box_pos)
+                            if self.action is None:
+                                if len(box_locations) > 1:
+                                    while self.action is None:
+                                        min_box_pos = random.choice(box_locations)
+                                        self.action = self.find_path_from_our_location(min_box_pos)
+                                else:
+                                    goal_count -= 1
+                                    if goal_count != 0:
+                                        box_locations = self.find_good_box_location(goal_count)
+                                        min_box_pos = random.choice(box_locations)
+                                        self.action = self.find_path_from_our_location(min_box_pos)
+                            return self.action
+                    self.detect_nearby_bombs()        
                     self.evade_bombs()
                     if len(self.remnant_blast) > 0:
                         if self.action == 'u':
@@ -305,6 +255,7 @@ class agent:
             if self.action is not None:
                 return self.action
             else:
+                self.detect_nearby_bombs()
                 self.evade_bombs()
                 # Ensure bot does not walk into active bomb blast
                 if len(self.remnant_blast) > 0:
@@ -352,56 +303,36 @@ class agent:
                 radius[(bomb[0], bomb[1] - 2)] = True
         return radius
 
-    def blast_radius2(self, bomb):
-        """ Determines which solid tiles the bomb will reach. """
-        radius = {
-            bomb: True
-        }
-        if bomb[0] - 1 >= 0:
-            if self.graph[bomb[0] - 1][bomb[1]] == -1:
-                radius[(bomb[0] - 1, bomb[1])] = True
-            elif bomb[0] - 2 >= 0 and self.graph[bomb[0] - 2][bomb[1]] == -1:
-                radius[(bomb[0] - 2, bomb[1])] = True
-        if bomb[0] + 1 <= 9:
-            if self.graph[bomb[0] + 1][bomb[1]] == -1:
-                radius[(bomb[0] + 1, bomb[1])] = True
-            elif bomb[0] + 2 <= 9 and self.graph[bomb[0] + 2][bomb[1]] == -1:
-                radius[(bomb[0] + 2, bomb[1])] = True
-        if bomb[1] + 1 <= 11:
-            if self.graph[bomb[0]][bomb[1] + 1] == -1:
-                radius[(bomb[0], bomb[1] + 1)] = True
-            elif bomb[1] + 2 <= 11 and self.graph[bomb[0]][bomb[1] + 2] == -1:
-                radius[(bomb[0], bomb[1] + 2)] = True
-        if bomb[1] - 1 >= 0:
-            if self.graph[bomb[0]][bomb[1] - 1] == -1:
-                radius[(bomb[0], bomb[1] - 1)] = True
-            elif bomb[1] - 2 >= 0 and self.graph[bomb[0]][bomb[1] - 2] == -1:
-                radius[(bomb[0], bomb[1] - 2)] = True
-        return radius
-
     def detect_nearby_bombs(self):
         """ Determines blast radius of bombs 1 tick and 2 ticks from exploding. """
         # adds bomb to self.bomb and determines how many ticks until explosion
-
-        if (len(self.bombs) < len(self.bomb_locations)):
-            for bomb in self.bomb_locations:
-                bomb_coord = self.xy_to_matrix(bomb)
-                if bomb_coord not in self.bombs:
-                    chain_bomb = None
-                    for tile in self.blast_radius(bomb_coord):
-                        if tile in self.bombs:
-                            if chain_bomb is None:
-                                chain_bomb = tile
-                            elif self.bombs[tile] < self.bombs[chain_bomb]:
-                                chain_bomb = tile
-                    if chain_bomb is not None:
-                        self.bombs[bomb_coord] = self.bombs[chain_bomb] + 1
-                    else:
-                        self.bombs[bomb_coord] = 35
+        try:
+            if (len(self.bombs) < len(self.bomb_locations)):
+                for bomb in self.bomb_locations:
+                    bomb_coord = self.xy_to_matrix(bomb)
+                    if bomb_coord not in self.bombs:
+                        chain_bomb = None
+                        for tile in self.blast_radius(bomb_coord):
+                            if tile in self.bombs:
+                                if chain_bomb is None:
+                                    chain_bomb = tile
+                                elif self.bombs[tile] < self.bombs[chain_bomb]:
+                                    chain_bomb = tile
+                        if chain_bomb is not None:
+                            self.bombs[bomb_coord] = self.bombs[chain_bomb] + 1
+                        else:
+                            self.bombs[bomb_coord] = 35 
+        except Exception:
+            self.bombs = {}
 
         # save blast radius of bombs + remnant
         self.blast_radius_1tick = {}
         self.blast_radius_2tick = {}
+        try:
+            if len(self.remnant_blast) >= 0:
+                pass
+        except Exception:
+            self.remnant_blast = {}
 
         bombs_to_pop = []
         for bomb in self.bombs:
@@ -411,7 +342,8 @@ class agent:
                 continue
             if self.bombs[bomb] == 0 or self.bombs[bomb] == -1:
                 for tile in self.blast_radius(bomb):
-                    self.remnant_blast[tile] = self.bombs[bomb]
+                    self.remnant_blast[bomb] = True
+                    # print(f'Remnant bomb at: {bomb} in {self.bombs[bomb]}')
             elif self.bombs[bomb] == 1:
                 for tile in self.blast_radius(bomb):
                     self.blast_radius_1tick[tile] = True
@@ -421,9 +353,17 @@ class agent:
 
         for bomb in bombs_to_pop:
             self.bombs.pop(bomb)
-            for tile in self.blast_radius(bomb):
-                if tile in self.remnant_blast and (self.remnant_blast[tile] == 0 or self.remnant_blast[tile] == -1):
-                    self.remnant_blast.pop(tile)
+            # print(f'Remnant bomb: {bomb} popped')
+            self.remnant_blast.pop(bomb)
+
+        # for bomb in self.bombs:
+        #     print(f'Bomb at: {bomb} going off in {self.bombs[bomb]} ticks')
+
+        # print('t1: ', self.blast_radius_1tick)
+        # print('t2: ', self.blast_radius_2tick)
+
+        # for remnant in self.remnant_blast:
+        #     print(f'Remnant bomb: {remnant} affecting: {self.remnant_blast[remnant]}')
 
     def get_blast_prone(self):
         tiles = {}
@@ -472,7 +412,7 @@ class agent:
                             break
                     visited[c_pos] = True
                     q.put((a_pos, d + 1))
-        elif self.location in self.bombs or self.location in self.remnant_blast:
+        elif self.location in self.bombs:
             q = queue.SimpleQueue()
             q.put(self.location)
             visited = {}
@@ -506,7 +446,7 @@ class agent:
             path.reverse()
             safe = path[1]
 
-        if safe is not None and safe not in self.remnant_blast:
+        if safe is not None:
             diff_pos = (safe[0] - self.location[0], safe[1] - self.location[1]) 
             if diff_pos[0] == -1:
                 self.action = 'u'
